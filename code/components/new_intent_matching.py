@@ -2,7 +2,7 @@ from constants.prompt_templates import INTENT_MATCHING_TEMPLATE, INPUT_PARAMETER
 from constants.db_constants import DATABASE_SCHEMA
 from constants.chatbot_responses import FAILED_INTENT_MATCH
 import re
-from common_intent import classify_intent, common_question_embeddings
+from components.common_intent import classify_intent, common_question_embeddings
 
 INTENT_MATCHING_COMMON_QUESTION_DELIMITER = ','
 
