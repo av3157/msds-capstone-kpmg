@@ -3,6 +3,7 @@ from clients.neo4j_client import Neo4jClient
 from clients.openai_client import OpenAiClient
 from clients.langchain_client import LangChainClient
 from components.new_intent_matching import get_input_parameter, get_request_intent
+from components.extract_node_info import match_node
 from constants.prompt_templates import USER_RESPONSE_TEMPLATE, INTENT_MATCHING_TEMPLATE
 from constants.chatbot_responses import CHATBOT_INTRO_MESSAGE, FAILED_INTENT_MATCH, CYPHER_QUERY_ERROR, NOT_RELEVANT_USER_REQUEST, NO_RESULTS_FOUND
 from constants.db_constants import DATABASE_SCHEMA
@@ -215,12 +216,14 @@ def rag_chatbot(user_input):
 def execute_uncommon_query(user_input, embeddings):
     langchain_client = LangChainClient()
     error_occurred = False
+    node_info = match_node(user_input)
+    print(f"Retrieving information from the {node_info}.")
     print("UNCOMMON QUERY")
     try:
         vector_qa = RetrievalQA.from_chain_type(
             llm=ChatOpenAI(temperature=0, model_name="gpt-4"),
             chain_type="stuff", #examples are stuff, map_reduce, refine, map_rerank
-            retriever=embeddings["ModelVersion_embedding_graph"].as_retriever(search_type='similarity', k=8)) #Hardcoded for model version
+            retriever=embeddings[node_info].as_retriever(search_type='similarity', k=8)) #Hardcoded for model version
         cypher_query_documents = vector_qa.retriever.get_relevant_documents(user_input)
         cypher_query_response = vector_qa.run(user_input)
 

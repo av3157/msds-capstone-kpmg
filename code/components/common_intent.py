@@ -2,6 +2,9 @@ from langchain_openai import OpenAIEmbeddings
 import numpy as np
 from numpy.linalg import norm
 
+from dotenv import load_dotenv
+load_dotenv()
+
 COMMON_QUESTIONS = [
     "What report fields are downstream of a specific column?",
     "What are the performance metrics of a specific model?",
