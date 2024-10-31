@@ -17,7 +17,7 @@ class LangChainClient:
     def run_template_generation(self, user_input, context_text):
         self.graph.refresh_schema()
         CYPHER_GENERATION_PROMPT = PromptTemplate(
-            input_variables=["question", "context", "schema"], template=UNCOMMON_QUESTION_WORKFLOW_TEMPLATE
+            input_variables=["query", "context", "schema"], template=UNCOMMON_QUESTION_WORKFLOW_TEMPLATE
         )
 
         chain = GraphCypherQAChain.from_llm(
@@ -30,8 +30,8 @@ class LangChainClient:
         )
 
         user_question = {
-            "query": UNCOMMON_QUESTION_WORKFLOW_TEMPLATE,
-            "question": user_input,    # The user's question
+            # "query": UNCOMMON_QUESTION_WORKFLOW_TEMPLATE,
+            "query": user_input,       # The user's question
             "context": context_text,   # Initial or placeholder query if applicable
             "schema": DATABASE_SCHEMA  # Provide the schema here if defined elsewhere
         }

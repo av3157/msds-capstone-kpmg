@@ -224,7 +224,7 @@ UNCOMMON_QUESTION_WORKFLOW_TEMPLATE = """
     RETURN mv.model_parameters
 
     User input:
-    {question}
+    {query}
 
     Context:
     {context}
