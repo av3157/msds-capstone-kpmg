@@ -223,9 +223,11 @@ def execute_uncommon_query(user_input, embeddings):
         vector_qa = RetrievalQA.from_chain_type(
             llm=ChatOpenAI(temperature=0, model_name="gpt-4"),
             chain_type="stuff", #examples are stuff, map_reduce, refine, map_rerank
-            retriever=embeddings[node_info].as_retriever(search_type='similarity', k=8)) #Hardcoded for model version
+            retriever=embeddings[node_info].as_retriever(search_type='similarity', k=15)) 
         cypher_query_documents = vector_qa.retriever.get_relevant_documents(user_input)
-        cypher_query_response = vector_qa.run(user_input)
+
+        context_text = "\n".join([doc.page_content for doc in cypher_query_documents])
+        cypher_query_response = langchain_client.run_template_generation(user_input, context_text)
 
         #Parameter Correction - if necessary
         if len(cypher_query_documents) == 0:
@@ -273,7 +275,7 @@ def execute_common_query(openai, user_input, question_id):
             if len(cypher_query_response) == 0:
                 print(f"NOTE: Common query execution failed AFTER correction, trying LangChain")
                 langchain_client = LangChainClient()
-                cypher_query_response = langchain_client.run_template_generation(corrected_input)
+                cypher_query_response = langchain_client.run_template_generation(corrected_input, "") # added "" as context for now
                 parameter_for_agraph = ''
 
     except Exception as e:
