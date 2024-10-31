@@ -30,10 +30,9 @@ class LangChainClient:
         )
 
         user_question = {
-            # "query": UNCOMMON_QUESTION_WORKFLOW_TEMPLATE,
             "query": user_input,       # The user's question
-            "context": context_text,   # Initial or placeholder query if applicable
-            "schema": DATABASE_SCHEMA  # Provide the schema here if defined elsewhere
+            "context": context_text,   # context from RetrievalQA
+            "schema": DATABASE_SCHEMA  # database schema
         }
 
         result = chain.invoke(user_question)
