@@ -59,7 +59,10 @@ INTENT_MATCHING_TEMPLATE = """
     - Answer: [COMMON,8]
 
     Schema:
-    {schema}
+    Node properties are the following:
+    Database {{name: STRING, type: STRING}},Table {{name: STRING, primary_key: STRING}},Column {{name: STRING, type: STRING}},BusinessGroup {{name: STRING}},Contact{{name: STRING, email: STRING}},User {{name: STRING, account: STRING, entitlement: LIST, role: STRING}},Report {{name: STRING}},ReportSection {{name: STRING}},ReportField {{id: STRING, name: STRING}},DataElement {{name: STRING, source: STRING, generatedFrom: STRING}},ModelVersion {{name: STRING, version: INTEGER, latest_version: STRING, metadata: STRING, model_parameters: STRING, top_features: STRING, performance_metrics: STRING, model_id: STRING}},Model {{name: STRING, model_metadata: STRING, move_id: STRING}}
+    The relationships are the following:
+    (:Database)-[:CONTAINS]->(:Table),(:Database)-[:ASSOCIATED_WITH]->(:BusinessGroup),(:Table)-[:HAS_COLUMN]->(:Column),(:Table)-[:HAS_PRIMARY_KEY]->(:Column),(:Column)-[:TRANSFORMS]->(:DataElement),(:Contact)-[:CONTACT_OF]->(:BusinessGroup),(:User)-[:ENTITLED_ON]->(:Database),(:User)-[:ENTITLED_ON]->(:Report),(:User)-[:OWNS]->(:Report),(:User)-[:OWNS]->(:ModelVersion),(:User)-[:MAINTAINS]->(:Report),(:User)-[:MAINTAINS]->(:ModelVersion),(:Report)-[:ASSOCIATED_WITH]->(:BusinessGroup),(:ReportSection)-[:PART_OF]->(:Report),(:ReportField)-[:BELONGS_TO]->(:ReportSection),(:DataElement)-[:FEEDS]->(:ReportField),(:DataElement)-[:INPUT_TO]->(:ModelVersion),(:ModelVersion)-[:PRODUCES]->(:DataElement),(:Model)-[:VERSION_OF]->(:ModelVersion),(:Model)-[:LATEST_VERSION]->(:ModelVersion)
     
     User input is:
     {question}
@@ -221,7 +224,10 @@ UNCOMMON_QUESTION_WORKFLOW_TEMPLATE = """
     RETURN mv.model_parameters
 
     User input:
-    {question}
+    {query}
+
+    Context:
+    {context}
 
     Schema:
     {schema}

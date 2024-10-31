@@ -4,6 +4,7 @@ from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
 from langchain.prompts.prompt import PromptTemplate
 from constants.prompt_templates import UNCOMMON_QUESTION_WORKFLOW_TEMPLATE
+from constants.db_constants import DATABASE_SCHEMA
 
 import os
 
@@ -13,19 +14,27 @@ class LangChainClient:
             url=os.getenv('NEO4J_URI'), username=os.getenv('NEO4J_USER'), password=os.getenv('NEO4J_PASSWORD')
         )
     
-    def run_template_generation(self, user_input):
+    def run_template_generation(self, user_input, context_text):
+        self.graph.refresh_schema()
         CYPHER_GENERATION_PROMPT = PromptTemplate(
-            input_variables=["schema", "question"], template=UNCOMMON_QUESTION_WORKFLOW_TEMPLATE
+            input_variables=["query", "context", "schema"], template=UNCOMMON_QUESTION_WORKFLOW_TEMPLATE
         )
 
         chain = GraphCypherQAChain.from_llm(
-            ChatOpenAI(temperature=0),
+            ChatOpenAI(temperature=0, model_name="gpt-4"),
             graph=self.graph,
             verbose=True,
+            allow_dangerous_requests=True,
             cypher_prompt=CYPHER_GENERATION_PROMPT,
             return_intermediate_steps=True
         )
 
-        result = chain.invoke(user_input)
+        user_question = {
+            "query": user_input,       # The user's question
+            "context": context_text,   # context from RetrievalQA
+            "schema": DATABASE_SCHEMA  # database schema
+        }
+
+        result = chain.invoke(user_question)
         print(f"LangChain Cypher query steps: {result['intermediate_steps']}")
         return result['intermediate_steps']

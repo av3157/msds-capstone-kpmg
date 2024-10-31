@@ -2,7 +2,8 @@ import streamlit as st
 from clients.neo4j_client import Neo4jClient
 from clients.openai_client import OpenAiClient
 from clients.langchain_client import LangChainClient
-from components.intent_matching import get_input_parameter, get_request_intent
+from components.new_intent_matching import get_input_parameter, get_request_intent
+from components.extract_node_info import match_node
 from constants.prompt_templates import USER_RESPONSE_TEMPLATE, INTENT_MATCHING_TEMPLATE
 from constants.chatbot_responses import CHATBOT_INTRO_MESSAGE, FAILED_INTENT_MATCH, CYPHER_QUERY_ERROR, NOT_RELEVANT_USER_REQUEST, NO_RESULTS_FOUND
 from constants.db_constants import DATABASE_SCHEMA
@@ -15,9 +16,18 @@ from streamlit_agraph import agraph, Node, Edge, Config
 from streamlit_image_zoom import image_zoom
 from PIL import Image
 
-
+from langchain_community.vectorstores import Neo4jVector
+from langchain_openai import OpenAIEmbeddings
+from langchain.chains import RetrievalQA
+from langchain.chat_models import ChatOpenAI
+from langchain.chains import GraphCypherQAChain
+from constants.prompt_templates import UNCOMMON_QUESTION_WORKFLOW_TEMPLATE
+from langchain.prompts.prompt import PromptTemplate
+from langchain_community.graphs import Neo4jGraph
 from dotenv import load_dotenv
 load_dotenv()
+
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
 # RAG Chatbot Orchestrator
 #     1. Intent matching to determine if user request is a common, uncommon, or irrelevant question
@@ -25,11 +35,122 @@ load_dotenv()
 #         - If its uncommon, we call GraphCypherQAChain with some example Cypher queries to generate a Cypher query
 #         - If its irrelevant, we let the user know that we don't support their request
 #     2. For common and uncommon Cypher query results, we pass the user request and query result to a LLM to generate the final response
+def create_embeddings():
+    uri = os.getenv('NEO4J_URI')
+    username = os.getenv('NEO4J_USER')
+    password = os.getenv('NEO4J_PASSWORD')
+
+    BusinessGroup = { "index_name": "BusinessGroup_idx",
+                    "node_label": "BusinessGroup",
+                    "text_node_properties": ["name"],
+                    "embedding_node_property": "BusinessGroup_embedding"
+                    }
+    Column = {
+    "index_name": "Column_idx",
+    "node_label": "Column",
+    "text_node_properties": ["name", "type"],
+    "embedding_node_property": "Column_embedding"
+    }
+
+    Contact = {
+    "index_name": "Contact_idx",
+    "node_label": "Contact",
+    "text_node_properties": ["name", "type"],
+    "embedding_node_property": "Contact_embedding"
+    }
+
+    Database = {
+    "index_name": "Database_idx",
+    "node_label": "Database",
+    "text_node_properties": ["name", "type"],
+    "embedding_node_property": "Database_embedding"
+    }
+
+    DataElement = {
+    "index_name": "DataElement_idx",
+    "node_label": "DataElement",
+    "text_node_properties": ["name", "source", "generatedForm"],
+    "embedding_node_property": "DataElement_embedding"
+    }
+
+    Model = {
+    "index_name": "Model_idx",
+    "node_label": "Model",
+    "text_node_properties": ["move_id", "name", "model_metadata"],
+    "embedding_node_property": "DataElement_embedding"
+    }
+
+    ModelVersion = {
+    "index_name": "ModelVersion_idx",
+    "node_label": "ModelVersion",
+    "text_node_properties": ["metadata", "latest_version", "performance_metrics", "name", 
+                            "model_parameters", "top_features", "model_id", "version"],
+    "embedding_node_property": "DataElement_embedding"
+    }
+
+    Report = {
+    "index_name": "Report_idx",
+    "node_label": "Report",
+    "text_node_properties": ["name"],
+    "embedding_node_property": "Report_embedding"
+    }
+
+    ReportField = {
+    "index_name": "ReportField_idx",
+    "node_label": "ReportField",
+    "text_node_properties": ["name", "id"],
+    "embedding_node_property": "ReportField_embedding"
+    }
+
+    ReportSection = {
+    "index_name": "ReportSection_idx",
+    "node_label": "ReportSection",
+    "text_node_properties": ["name"],
+    "embedding_node_property": "ReportSection_embedding"
+    }
+
+    Table = {
+    "index_name": "Table_idx",
+    "node_label": "Table",
+    "text_node_properties": ["name"],
+    "embedding_node_property": "Table_embedding"
+    }
+
+    User = {
+    "index_name": "User_idx",
+    "node_label": "User",
+    "text_node_properties": ["name", "account"], #omitted entitlement for now
+    "embedding_node_property": "User_embedding"
+    }
+
+    parent = [BusinessGroup, Column, Contact, Database, 
+            DataElement, Model, ModelVersion, Report, 
+            ReportField, ReportSection, Table, User]
+
+    graphs = {}
+
+    for i in range(len(parent)):
+    # Create the vectorstore for our existing graph
+        val = parent[i]["node_label"]
+        graphs[f"{val}_embedding_graph"] = Neo4jVector.from_existing_graph(
+            embedding=OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY),
+            url=uri,
+            username=username,
+            password=password,
+            index_name=parent[i]["index_name"],
+            node_label=parent[i]["node_label"],
+            text_node_properties=parent[i]["text_node_properties"],
+            embedding_node_property=parent[i]["embedding_node_property"],
+        )
+    return graphs 
+
 def rag_chatbot(user_input):
+    embeddings_graphs = create_embeddings()
     print("---------------------------------")
     print(f"User request: {user_input}")
     openai = OpenAiClient()
     error_occurred = False
+
     # Get user request intent
     get_request_intent_response = get_request_intent(user_input, openai)
     intent_type = get_request_intent_response[0]
@@ -37,11 +158,12 @@ def rag_chatbot(user_input):
 
     # Irrelevant user request
     if intent_type == "NONE":
-        return NOT_RELEVANT_USER_REQUEST
+        #return NOT_RELEVANT_USER_REQUEST
+        intent_type = "UNCOMMON"
     
     # We call LangChain+LLM to generate a Cypher query for uncommon questions 
     if intent_type == "UNCOMMON":
-        uncommon_query_response = execute_uncommon_query(user_input)
+        uncommon_query_response = execute_uncommon_query(user_input, embeddings_graphs)
         cypher_query_response, error_occurred = uncommon_query_response['cypher_query_response'], uncommon_query_response['error_occurred']
     elif intent_type == "COMMON":
         if len(get_request_intent_response) > 1:
@@ -91,27 +213,36 @@ def rag_chatbot(user_input):
     response = generate_final_output(openai, user_input, cypher_query_response)
     return response
 
-def execute_uncommon_query(user_input):
+def execute_uncommon_query(user_input, embeddings):
     langchain_client = LangChainClient()
     error_occurred = False
+    node_info = match_node(user_input)
+    print(f"Retrieving information from the {node_info}.")
     print("UNCOMMON QUERY")
-
     try:
-        print(f"User input: {user_input}")
-        cypher_query_response = langchain_client.run_template_generation(user_input)
+        vector_qa = RetrievalQA.from_chain_type(
+            llm=ChatOpenAI(temperature=0, model_name="gpt-4"),
+            chain_type="stuff", #examples are stuff, map_reduce, refine, map_rerank
+            retriever=embeddings[node_info].as_retriever(search_type='similarity', k=15)) 
+        cypher_query_documents = vector_qa.retriever.get_relevant_documents(user_input)
 
-        # If no data is found, retry with input correction
-        if len(cypher_query_response[1]["context"]) == 0:
+        context_text = "\n".join([doc.page_content for doc in cypher_query_documents])
+        cypher_query_response = langchain_client.run_template_generation(user_input, context_text)
+
+        #Parameter Correction - if necessary
+        if len(cypher_query_documents) == 0:
             print("NOTE: No data was found from LangChain call, trying parameter correction\n")
             input_corrector = ParameterCorrection()
             updated_user_input = input_corrector.generate_response(user_input, '')
             print(f"Retrying LangChain with corrected user input: [{updated_user_input[1]}]")
-            cypher_query_response = langchain_client.run_template_generation(updated_user_input[1])
+            cypher_query_response = vector_qa.run(updated_user_input[1])
+        
+        print("RETRIEVAL RESPONSE:", cypher_query_response)
+    
     except Exception as e:
         print(f"ERROR: {e}")
         cypher_query_response = CYPHER_QUERY_ERROR
         error_occurred = True
-    
     return { 'cypher_query_response': cypher_query_response, 'error_occurred': error_occurred}
 
 def execute_common_query(openai, user_input, question_id):
@@ -144,7 +275,7 @@ def execute_common_query(openai, user_input, question_id):
             if len(cypher_query_response) == 0:
                 print(f"NOTE: Common query execution failed AFTER correction, trying LangChain")
                 langchain_client = LangChainClient()
-                cypher_query_response = langchain_client.run_template_generation(corrected_input)
+                cypher_query_response = langchain_client.run_template_generation(corrected_input, "") # added "" as context for now
                 parameter_for_agraph = ''
 
     except Exception as e:
