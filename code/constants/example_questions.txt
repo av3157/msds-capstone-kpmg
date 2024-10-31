@@ -1,0 +1,134 @@
+Nodes:          BusinessGroup, Column, Contact, Database, 
+                DataElement, Model, ModelVersion, Report, 
+                ReportField, ReportSection, Table, User
+
+Relationships:  ASSOCIATED_WITH, BELONGS_TO, CONTACT_OF, 
+                CONTAINS, ENTITLED_ON, FEEDS, HAS_COLUMN,
+                HAS_PRIMARY_KEY, INPUT_TO, LATEST_VERSION,
+                MAINTAINS, OWNS, PART_OF, PRODUCES, TRANSFORMS, VERSION_OF
+        
+Requests:       upstream, downstream, how many, what type, 
+                which version, what parameters, which users,
+                who maintains, who owns, what is linked to, 
+                what are the [attribute] of nodes meeting condition
+
+Reqs -> Rels: {"works on": [MAINTAINS, ENTITLED_ON, OWNS]}
+
+
+
+
+# Uncommon
+1. How many Business Groups are there?
+        MATCH (n:BusinessGroup) 
+        RETURN count(*);
+
+2. What type of database is Customer Service Database?
+        MATCH (d:Database) 
+        WHERE d.name CONTAINS "Customer" and d.name CONTAINS "Service"
+        RETURN d.type;  
+
+3. What report is the regional sales breakdown report field part of?
+        MATCH (r:ReportSection)
+        WHERE r.name CONTAINS "Regional" and r.name CONTAINS "Sales" and r.name CONTAINS "Breakdown"
+        MATCH (r)-[:PART_OF]-(report:Report) 
+        RETURN report.name;
+
+4. Which users own the Customer Service Satisfaction Survey Analysis report?
+        MATCH (u:User)-[:ENTITLED_ON]-(report:Report {name: "Customer Satisfaction Survey Analysis"}) 
+        RETURN u.name;
+
+5. What business group is the IT database associated with?
+        MATCH (d:Database)-[:ASSOCIATED_WITH]->(bg:BusinessGroup)
+        WHERE d.name CONTAINS "IT"
+        RETURN bg.name
+
+
+6. What are all of the latest versions of models?
+        MATCH (m:Model)-[:LATEST_VERSION]-(mv:ModelVersion) 
+        RETURN m.name, mv.name;
+
+7. What is the mean absolute error of the latest Inventory Management model?
+        MATCH (mv:ModelVersion)
+        WHERE mv.name CONTAINS 'Inventory' and mv.name CONTAINS 'Management' and mv.latest_version = "True"
+        WITH mv.name as name, split(mv.performance_metrics, ',') as mets
+        UNWIND mets as met
+        WITH met
+        WHERE met CONTAINS 'mean_absolute_error'
+        RETURN btrim(split(met,':')[1]) as MeanAbsoluteError
+
+8. What are the root mean squared errors of all of the latest models? 
+        MATCH (mv:ModelVersion)
+        WHERE mv.latest_version = "True"
+        WITH mv.name as name, split(mv.performance_metrics, ',') as mets
+        UNWIND mets as met
+        WITH name, met
+        WHERE met CONTAINS 'root_mean_squared_error'
+        RETURN name, rtrim(btrim(split(met,':')[1]), '}') as RMSE
+        ORDER BY toFloat(RMSE) ASC 
+
+9. Which users are entitled on the Executive Management Database and what are their accounts?
+        MATCH (u:User)-[:ENTITLED_ON]-(db:Database)
+        WHERE db.name CONTAINS "Executive" and db.name CONTAINS "Management"
+        RETURN u.name, u.account
+
+10. Which models use a random forest?
+        MATCH (mv:ModelVersion)
+        WHERE mv.model_parameters CONTAINS "Random" and mv.model_parameters CONTAINS "Forest"
+        RETURN mv.name
+
+11. What databases are the user customer service analyst entitled to?
+        MATCH (u:User)-[:ENTITLED_ON]-(db:Database)
+        WHERE u.name CONTAINS "customer" and u.name CONTAINS "service" and u.name CONTAINS "analyst"
+        RETURN db.name
+
+12. What algorithms do all of the models use?
+        MATCH (mv:ModelVersion)
+        WHERE mv.latest_version = "True"
+        RETURN mv.name, mv.model_parameters;
+
+13. What columns does the service tickets table have?
+        MATCH (t:Table)-[:HAS_COLUMN]->(c:Column)
+        WHERE t.name CONTAINS "Service" and t.name CONTAINS "Tickets"
+        RETURN c.name
+
+14. What tables do the marketing database contain?
+        MATCH (t:Table)<-[:CONTAINS]-(db:Database)
+        WHERE db.name CONTAINS "Marketing"
+        RETURN t.name 
+
+15. What business group is the Employee Productivity Report associated with?
+        MATCH (r:Report)-[:ASSOCIATED_WITH]->(bg:BusinessGroup)
+        WHERE r.name CONTAINS "Employee" and r.name CONTAINS "Productivity"
+        return bg.name
+
+16. What business group is the user sales analyst involved with?
+        MATCH (u:User)-[:ENTITLED_ON]->(db:Database)
+        WHERE u.name CONTAINS "sales" and u.name CONTAINS "analyst"
+        MATCH (db)-[:ASSOCIATED_WITH]->(bg:BusinessGroup)
+        RETURN bg.name
+
+
+17. List all users who work on Inventory Management Report and their contributions
+        MATCH (u:User)-[r]->(rp:Report)
+        WHERE rp.name CONTAINS "Inventory" and rp.name CONTAINS "Management"
+        RETURN u.name, r 
+
+18. What tables does the executive management database contain?
+        MATCH (db:Database)-[:CONTAINS]->(t:Table)
+        WHERE db.name CONTAINS "Executive" and db.name CONTAINS "Management"
+        RETURN t.name
+
+19. Name all of the report fields in the Financial Health Dashboard report
+        MATCH (r:Report)<-[:PART_OF]-(rs:ReportSection)
+        WHERE r.name CONTAINS "Financial" and r.name CONTAINS "Health" 
+        MATCH (rs)<-[:BELONGS_TO]-(rf:ReportField)
+        RETURN rf.name
+
+20. Which models are used to create the Employee Productivity Report?
+        MATCH (r:Report)<-[:PART_OF]-(rs:ReportSection)<-[:BELONGS_TO]-(rf:ReportField)<-[:FEEDS]-(db:DataElement)<-[:PRODUCES]-(mv:ModelVersion)<-[:LATEST_VERSION]-(m:Model)
+        WHERE r.name CONTAINS "Employee" and r.name CONTAINS "Productivity"
+        RETURN m.name 
+
+
+
+
