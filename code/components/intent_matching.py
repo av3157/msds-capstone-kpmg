@@ -7,7 +7,6 @@ INTENT_MATCHING_COMMON_QUESTION_DELIMITER = ','
 
 def get_request_intent(user_request, llm):
     # Intent matching
-    #return ["UNCOMMON",0]
     intent_matching_response = llm.generate(INTENT_MATCHING_TEMPLATE.format(schema=DATABASE_SCHEMA, question=user_request))
     print(f"Intent matching result: {intent_matching_response}")
 

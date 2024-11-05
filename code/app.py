@@ -2,7 +2,7 @@ import streamlit as st
 from clients.neo4j_client import Neo4jClient
 from clients.openai_client import OpenAiClient
 from clients.langchain_client import LangChainClient
-from components.new_intent_matching import get_input_parameter, get_request_intent
+from components.intent_matching import get_input_parameter, get_request_intent
 from components.extract_node_info import match_node
 from constants.prompt_templates import USER_RESPONSE_TEMPLATE, INTENT_MATCHING_TEMPLATE
 from constants.chatbot_responses import CHATBOT_INTRO_MESSAGE, FAILED_INTENT_MATCH, CYPHER_QUERY_ERROR, NOT_RELEVANT_USER_REQUEST, NO_RESULTS_FOUND
@@ -157,9 +157,9 @@ def rag_chatbot(user_input):
     cypher_query_response = {}
 
     # Irrelevant user request
-    if intent_type == "NONE":
-        #return NOT_RELEVANT_USER_REQUEST
-        intent_type = "UNCOMMON"
+    node_info = match_node(user_input)
+    if node_info is None:
+        return NOT_RELEVANT_USER_REQUEST
     
     # We call LangChain+LLM to generate a Cypher query for uncommon questions 
     if intent_type == "UNCOMMON":

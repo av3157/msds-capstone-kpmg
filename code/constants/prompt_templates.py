@@ -1,13 +1,10 @@
 INTENT_MATCHING_TEMPLATE = """
     Task: 
-    Step 1: determine if the user input is relevant or not based on whether it uses any words mentioned in the schema
-    If it is NOT relevant, return [NONE,-1]
-
-    If it is relevant, step 2, match user request intent to one of the following "common questions" and return the question number.
+    Step 1: Match the user request intent to one of the following "common questions" and return the question number.
     
-    And if it doesn't match any of the following 5 questions, return [UNCOMMON,0]
+    Step 2: If it doesn't match any of the following 8 questions, return [UNCOMMON,0]
 
-    Make sure ONLY return [COMMON,Integer], [UNCOMMON,0] or [NONE,-1]!!!!!
+    Make sure ONLY return [COMMON,Integer] or [UNCOMMON,0]!!!!!
 
     Common Questions:
     - 1. What report fields are downstream of a specific column?
@@ -32,7 +29,7 @@ INTENT_MATCHING_TEMPLATE = """
     
     Example:
     - Question: What is fastest animal in the world?
-    - Answer: [NONE,-1]
+    - Answer: [UNCOMMON,0]
 
     Example:
     - Question: What are the SARIMA model parameters in Inventory Management Model Version 1?
