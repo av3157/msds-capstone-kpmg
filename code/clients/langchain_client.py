@@ -25,7 +25,7 @@ class LangChainClient:
             graph=self.graph,
             verbose=True,
             allow_dangerous_requests=True,
-            cypher_prompt=CYPHER_GENERATION_PROMPT,
+            prompt=CYPHER_GENERATION_PROMPT,
             return_intermediate_steps=True
         )
 
