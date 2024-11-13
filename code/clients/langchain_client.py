@@ -21,7 +21,7 @@ class LangChainClient:
         )
 
         chain = GraphCypherQAChain.from_llm(
-            ChatOpenAI(temperature=0, model_name="gpt-4"),
+            ChatOpenAI(temperature=0, model_name="gpt-4o"),
             graph=self.graph,
             verbose=True,
             allow_dangerous_requests=True,

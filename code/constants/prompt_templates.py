@@ -122,17 +122,28 @@ INPUT_PARAMETER_EXTRACTION_TEMPLATE = """
 
 
 UNCOMMON_QUESTION_WORKFLOW_TEMPLATE = """
-    Given these examples of questions and their associated Cypher query, and schema, generate the Cypher query for the user input.
-    Only the Cypher query should be returned.
+    I have provided you with some example questions and their associated Cypher queries.
+    You are given 3 inputs: a user question {query}, retrieved context {context}, and a graph schema {schema}.
+    Step 1: Check if the user question matches one of the example questions provided. Do not worry about punctuation.
+    Step 2: If the user question matches one of the example questions, return the corresponding Cypher query without any further modifications.
+    Step 3: If the user question does not match any example questions, generate and return a Cypher query using the user question, context, and schema.
 
-    Question: Which users have access to the IT_Database and what are their roles?
+    For example, a matching user question would look like the following: 
+    User Question: Which users have access to IT database and what are their respective roles?
+    Example Question: Which users have access to the IT_Database and what are their roles?
+
+    Another example of a matching user question would look like the following: 
+    User Question: List out all the model versions.
+    Example Question: What are the names of all of the model versions?
+
+    Example Question: Which users have access to the IT_Database and what are their roles?
     Cypher Query:
     MATCH (d:Database)
     WHERE d.name CONTAINS "IT_Database"
     MATCH (u:User)-[:ENTITLED_ON]->(d)
     RETURN u.name AS UserName, u.role AS UserRole, u.account AS UserAccount
 
-    Question: What report fields are downstream of the CustomerID column?
+    Example Question: What report fields are downstream of the CustomerID column?
     Cypher Query:
     MATCH (col:Column)
     WHERE col.name CONTAINS "CustomerID"
@@ -145,16 +156,16 @@ UNCOMMON_QUESTION_WORKFLOW_TEMPLATE = """
     WITH col, rf
     RETURN col.name AS column, collect(distinct rf.name) AS AffectedReportFields
 
-    Question: What are the performance metrics of Employee Productivity Prediction Model?
+    Example Question: What are the performance metrics of Employee Productivity Prediction Model?
     Cypher Query:
     MATCH (m:Model)
     WHERE m.name CONTAINS "Employee Productivity Prediction Model"
     MATCH (m)-[r1:LATEST_VERSION]->(mv1:ModelVersion)
     RETURN mv1.performance_metrics AS performance_metrics
 
-    Question: What data is upstream to the Top Expense Categories report field?
+    Example Question: What data is upstream to the Top Expense Categories report field?
     Cypher Query:
-    MATCH (rf:ReportField {{name: "Top Expense Categories"}})
+    MATCH (rf:ReportField {name: "Top Expense Categories"})
     OPTIONAL MATCH (rf)<-[:FEEDS]-(de1:DataElement)<-[:TRANSFORMS]-(col1:Column)-[r1]-(t1:Table)
     WITH rf, de1, collect(DISTINCT col1.name) AS cols1
     OPTIONAL MATCH (rf)<-[:FEEDS]-(de2_1:DataElement)<-[:PRODUCES]-(mv:ModelVersion)<-[:INPUT_TO]-(de2_2:DataElement)<-[:TRANSFORMS]-(col2:Column)-[r2]-(t2:Table)
@@ -165,17 +176,17 @@ UNCOMMON_QUESTION_WORKFLOW_TEMPLATE = """
     (cols1 + cols2) AS cols,
     mv,
     de2_2s
-    RETURN {{
+    RETURN {
     ReportField: rf.name,
     DataElement_FeedReportField: de,
     ModelVersion: mv.name,
     DataElement_ModelInput: de2_2s,
     Column: cols
-    }} AS result
+    } AS result
 
-    Question: How many nodes upstream is the datasource for Training Hours report field?
+    Example Question: How many nodes upstream is the datasource for Training Hours report field?
     Cypher Query:
-    MATCH (rf:ReportField {{name: "Training Hours"}})
+    MATCH (rf:ReportField {name: "Training Hours"})
     OPTIONAL MATCH (rf)<-[:FEEDS]-(de1:DataElement)<-[:TRANSFORMS]-(col1:Column)
     OPTIONAL MATCH (rf)<-[:FEEDS]-(de2_1:DataElement)<-[:PRODUCES]-(mv:ModelVersion) <-[:INPUT_TO]-(de2_2:DataElement)<-[:TRANSFORMS]-(col2:Column)
     WITH
@@ -186,7 +197,7 @@ UNCOMMON_QUESTION_WORKFLOW_TEMPLATE = """
     END AS numberOfSteps
     RETURN DISTINCT numberOfSteps
 
-    Question: What is the difference between the latest version and the previous version of the Employee Productivity Prediction Model?
+    Example Question: What is the difference between the latest version and the previous version of the Employee Productivity Prediction Model?
     Cypher Query:
     MATCH (m:Model)
     WHERE m.name CONTAINS "Employee Productivity Prediction Model"
@@ -196,38 +207,34 @@ UNCOMMON_QUESTION_WORKFLOW_TEMPLATE = """
     RETURN
     mv1.name AS LatestVersion_v1,
     mv2.name AS PreviousVersion_v2,
-    {{
+    {
     model_parameters_v1: mv1.model_parameters,
     model_parameters_v2: mv2.model_parameters
-    }} AS ModelParameters,
-    {{
+    } AS ModelParameters,
+    {
     top_features_v1: mv1.top_features,
     top_features_v2: mv2.top_features
-    }} AS TopFeatures
+    } AS TopFeatures
 
-    Question: How was the Sales Confidence Interval report field calculated?
+    Example Question: How was the Sales Confidence Interval report field calculated?
     Cypher Query:
-    MATCH (rf:ReportField {{name: "Sales Confidence Interval"}})<-[:FEEDS]-(de:DataElement)
+    MATCH (rf:ReportField {name: "Sales Confidence Interval"})<-[:FEEDS]-(de:DataElement)
     RETURN de.generatedFrom AS GeneratedFrom
 
-    Question: What forecasting method is implemented in Inventory Management Prediction Model Version1 model version?
+    Example Question: What forecasting method is implemented in Inventory Management Prediction Model Version1 model version?
     Cypher Query:
-    MATCH (mv:ModelVersion {{name: "Inventory Management Prediction Model Version1"}})
+    MATCH (mv:ModelVersion {name: "Inventory Management Prediction Model Version1"})
     RETURN mv.model_parameters
 
-    Question: What is the maximum depth setting for the Decision Tree in Financial Health Prediction Model Version2?
+    Example Question: What is the maximum depth setting for the Decision Tree in Financial Health Prediction Model Version2?
     Cypher Query:
-    MATCH (mv:ModelVersion {{name: "Financial Health Prediction Model Version2"}})
+    MATCH (mv:ModelVersion {name: "Financial Health Prediction Model Version2"})
     RETURN mv.model_parameters
 
-    User input:
-    {query}
-
-    Context:
-    {context}
-
-    Schema:
-    {schema}
+    Example Question: What are the names of all of the model versions?
+    Cypher Query: 
+    MATCH (mv:ModelVersion)
+    RETURN mv.name
 
     In addition to the schema's nodes and relationships, the ModelVersion node has the following properties:
     [“name", "version", "latest_version", "metadata", "model_parameters", "top_features", "performance_metrics", "model_id"]
