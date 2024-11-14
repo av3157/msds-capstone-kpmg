@@ -130,5 +130,49 @@ Reqs -> Rels: {"works on": [MAINTAINS, ENTITLED_ON, OWNS]}
         RETURN m.name 
 
 
+21. Who are the creators of the Sales Performance Dashboard Report?
+        MATCH (u:User)-[r]->(rp:Report) 
+        WHERE rp.name = 'Sales Performance Dashboard' 
+        RETURN u.name, r
+
+22. Give a summary of the sections in each report.
+        MATCH (rs:ReportSection)-[:PART_OF]->(r:Report) 
+        RETURN r.name AS Report, collect(rs.name) AS Sections
+
+23. What tables are in the IT Database?
+        MATCH (d:Database {name: 'IT_Database'})-[:CONTAINS]->(t:Table) 
+        RETURN t.name
+
+24. Who has write access to the Operations_Database?
+        MATCH (db:Database)<-[:ENTITLED_ON]-(u:User)
+        WHERE db.name CONTAINS "Operations" AND "write" in u.entitlement
+        RETURN u.name
+
+25. Which model versions use mean absolute error as a performance metric?
+        MATCH (mv:ModelVersion)
+        WHERE mv.performance_metrics CONTAINS "mean_absolute_error"
+        RETURN mv.name, mv.performance_metrics
+
+26. For each database, list the users who have write access.
+        MATCH (u:User)-[:ENTITLED_ON]->(db:Database)
+        WHERE "write" in u.entitlement
+        RETURN db.name, u.name
+
+27. What are the email addresses of each of the Business Groups' Contacts?
+        MATCH (c:Contact)-[:CONTACT_OF]->(b:BusinessGroup) 
+        RETURN b.name AS BusinessGroup, c.email AS EmailAddress
+
+
+28. What reports are downstream of each database?
+        MATCH (d:Database)-[:CONTAINS]->(:Table)-[:HAS_COLUMN]->(:Column)-[:TRANSFORMS]->(:DataElement)-[:FEEDS]->(:ReportField)-[:BELONGS_TO]->(:ReportSection)-[:PART_OF]->(r:Report) 
+        RETURN d.name AS Database, collect(r.name) AS Reports
+
+29. List the reports that are associated with each business group.
+        MATCH (b:BusinessGroup)-[:ASSOCIATED_WITH]-(r:Report) 
+        RETURN b.name AS BusinessGroup, collect(r.name) AS Reports
+
+30. List all sections and fields of the Employee Productivity Report
+        MATCH (r:Report {name: 'Employee Productivity Report'})-[:ASSOCIATED_WITH]->(bg:BusinessGroup), (rs:ReportSection)-[:PART_OF]->(r), (rf:ReportField)-[:BELONGS_TO]->(rs)
+        RETURN rs.name as Section, rf.name as Field
 
 
