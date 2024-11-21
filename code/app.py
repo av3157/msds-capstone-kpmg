@@ -12,6 +12,7 @@ from components.parameter_correction import ParameterCorrection
 from gui.graph_test import fetch_graph_data
 import logging
 import os
+import re
 from streamlit_agraph import agraph, Node, Edge, Config
 from streamlit_image_zoom import image_zoom
 from PIL import Image
@@ -77,7 +78,7 @@ def create_embeddings():
     "index_name": "Model_idx",
     "node_label": "Model",
     "text_node_properties": ["move_id", "name", "model_metadata"],
-    "embedding_node_property": "DataElement_embedding"
+    "embedding_node_property": "Model_embedding"
     }
 
     ModelVersion = {
@@ -85,7 +86,7 @@ def create_embeddings():
     "node_label": "ModelVersion",
     "text_node_properties": ["metadata", "latest_version", "performance_metrics", "name", 
                             "model_parameters", "top_features", "model_id", "version"],
-    "embedding_node_property": "DataElement_embedding"
+    "embedding_node_property": "ModelVersion_embedding"
     }
 
     Report = {
@@ -157,7 +158,7 @@ def rag_chatbot(user_input):
     cypher_query_response = {}
 
     # Irrelevant user request
-    node_info = match_node(user_input)
+    node_info = match_node(user_input) 
     if node_info is None:
         return NOT_RELEVANT_USER_REQUEST
     
@@ -217,17 +218,46 @@ def execute_uncommon_query(user_input, embeddings):
     langchain_client = LangChainClient()
     error_occurred = False
     node_info = match_node(user_input)
-    print(f"Retrieving information from the {node_info}.")
+    embed_graph = node_info + "_embedding_graph"
+    print(f"Retrieving information from the {embed_graph}.")
     print("UNCOMMON QUERY")
     try:
         vector_qa = RetrievalQA.from_chain_type(
             llm=ChatOpenAI(temperature=0, model_name="gpt-4"),
             chain_type="stuff", #examples are stuff, map_reduce, refine, map_rerank
-            retriever=embeddings[node_info].as_retriever(search_type='similarity', k=15)) 
+            retriever=embeddings[embed_graph].as_retriever(search_type='similarity', k=15)) 
         cypher_query_documents = vector_qa.retriever.get_relevant_documents(user_input)
-
+        
         context_text = "\n".join([doc.page_content for doc in cypher_query_documents])
+        print(f"Retrieved Context: {context_text}")
+
         cypher_query_response = langchain_client.run_template_generation(user_input, context_text)
+
+        # Step 4 from workflow
+        # if Cypher Query returns no context ([]), then do the following:
+        # Retrieve relevant nodes 
+        answer = cypher_query_response[1]
+        if not answer["context"]:
+            n = 2 # for now
+            cypher_n_docs = cypher_query_documents[0:n]
+            first_n_docs = "\n".join([doc.page_content for doc in cypher_n_docs])
+            node_names = re.findall(r"name:\s*(.*)", first_n_docs)
+            print(f"FIRST N DOCS: {first_n_docs}")
+            print(f"NODE NAME: {node_names}")
+
+            neo4j = Neo4jClient()
+            cypher_query = f"""
+                MATCH (n)-[r]->(m)  // Outgoing relationships
+                WHERE n.name = "{node_names[0]}"
+                RETURN n AS source_node, r AS relationship, m AS connected_node
+                UNION
+                MATCH (n)<-[r]-(m)  // Incoming relationships
+                WHERE n.name = "{node_names[0]}"
+                RETURN n AS source_node, r AS relationship, m AS connected_node            
+            """
+            
+            cypher_query_response = neo4j.execute_query(cypher_query)
+            print("CYPHER QUERY EXECUTED SUCCESSFULLY!")
 
         #Parameter Correction - if necessary
         if len(cypher_query_documents) == 0:

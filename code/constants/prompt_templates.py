@@ -122,123 +122,82 @@ INPUT_PARAMETER_EXTRACTION_TEMPLATE = """
 
 
 UNCOMMON_QUESTION_WORKFLOW_TEMPLATE = """
-    I have provided you with some example questions and their associated Cypher queries.
-    You are given 3 inputs: a user question {query}, retrieved context {context}, and a graph schema {schema}.
-    Step 1: Check if the user question matches one of the example questions provided. Do not worry about punctuation.
-    Step 2: If the user question matches one of the example questions, return the corresponding Cypher query without any further modifications.
-    Step 3: If the user question does not match any example questions, generate and return a Cypher query using the user question, context, and schema.
+    I have provided you with relationships that nodes share based on a graph schema.
+    I want you to generate and return a Cypher Query that answers the user question: {query}, with additional information from the retrieved context: {context}, and graph schema: {schema}.
 
-    For example, a matching user question would look like the following: 
-    User Question: Which users have access to IT database and what are their respective roles?
-    Example Question: Which users have access to the IT_Database and what are their roles?
-
-    Another example of a matching user question would look like the following: 
-    User Question: List out all the model versions.
-    Example Question: What are the names of all of the model versions?
-
-    Example Question: Which users have access to the IT_Database and what are their roles?
-    Cypher Query:
-    MATCH (d:Database)
-    WHERE d.name CONTAINS "IT_Database"
-    MATCH (u:User)-[:ENTITLED_ON]->(d)
-    RETURN u.name AS UserName, u.role AS UserRole, u.account AS UserAccount
-
-    Example Question: What report fields are downstream of the CustomerID column?
-    Cypher Query:
-    MATCH (col:Column)
-    WHERE col.name CONTAINS "CustomerID"
-    OPTIONAL MATCH (col)-[r1]->(de1:DataElement)-[r2]->(rf1:ReportField)
-    WITH col, collect(distinct rf1) AS rf1s
-    OPTIONAL MATCH (col)-[r3]->(de2_1:DataElement)-[r4]->(mv:ModelVersion)-[r5]->(de2_2:DataElement)-[r6]->(rf2:ReportField)
-    WITH col, rf1s, collect(distinct rf2) AS rf2s
-    WITH col, rf1s + rf2s AS allRfs
-    UNWIND allRfs AS rf
-    WITH col, rf
-    RETURN col.name AS column, collect(distinct rf.name) AS AffectedReportFields
-
-    Example Question: What are the performance metrics of Employee Productivity Prediction Model?
-    Cypher Query:
-    MATCH (m:Model)
-    WHERE m.name CONTAINS "Employee Productivity Prediction Model"
-    MATCH (m)-[r1:LATEST_VERSION]->(mv1:ModelVersion)
-    RETURN mv1.performance_metrics AS performance_metrics
-
-    Example Question: What data is upstream to the Top Expense Categories report field?
-    Cypher Query:
-    MATCH (rf:ReportField {name: "Top Expense Categories"})
-    OPTIONAL MATCH (rf)<-[:FEEDS]-(de1:DataElement)<-[:TRANSFORMS]-(col1:Column)-[r1]-(t1:Table)
-    WITH rf, de1, collect(DISTINCT col1.name) AS cols1
-    OPTIONAL MATCH (rf)<-[:FEEDS]-(de2_1:DataElement)<-[:PRODUCES]-(mv:ModelVersion)<-[:INPUT_TO]-(de2_2:DataElement)<-[:TRANSFORMS]-(col2:Column)-[r2]-(t2:Table)
-    WITH rf, de1, cols1, de2_1, collect(DISTINCT col2.name) AS cols2, mv, collect(DISTINCT de2_2.name) AS de2_2s
-    WITH
-    rf,
-    COALESCE(de1.name, de2_1.name) AS de,
-    (cols1 + cols2) AS cols,
-    mv,
-    de2_2s
-    RETURN {
-    ReportField: rf.name,
-    DataElement_FeedReportField: de,
-    ModelVersion: mv.name,
-    DataElement_ModelInput: de2_2s,
-    Column: cols
-    } AS result
-
-    Example Question: How many nodes upstream is the datasource for Training Hours report field?
-    Cypher Query:
-    MATCH (rf:ReportField {name: "Training Hours"})
-    OPTIONAL MATCH (rf)<-[:FEEDS]-(de1:DataElement)<-[:TRANSFORMS]-(col1:Column)
-    OPTIONAL MATCH (rf)<-[:FEEDS]-(de2_1:DataElement)<-[:PRODUCES]-(mv:ModelVersion) <-[:INPUT_TO]-(de2_2:DataElement)<-[:TRANSFORMS]-(col2:Column)
-    WITH
-    CASE
-    WHEN de1 IS NOT NULL THEN 2
-    WHEN mv IS NOT NULL THEN 4
-    ELSE 0
-    END AS numberOfSteps
-    RETURN DISTINCT numberOfSteps
-
-    Example Question: What is the difference between the latest version and the previous version of the Employee Productivity Prediction Model?
-    Cypher Query:
-    MATCH (m:Model)
-    WHERE m.name CONTAINS "Employee Productivity Prediction Model"
-    MATCH (m)-[r1:LATEST_VERSION]->(mv1:ModelVersion)
-    MATCH (m)-[r2]->(mv2:ModelVersion)
-    WHERE mv2.version = mv1.version-1
-    RETURN
-    mv1.name AS LatestVersion_v1,
-    mv2.name AS PreviousVersion_v2,
-    {
-    model_parameters_v1: mv1.model_parameters,
-    model_parameters_v2: mv2.model_parameters
-    } AS ModelParameters,
-    {
-    top_features_v1: mv1.top_features,
-    top_features_v2: mv2.top_features
-    } AS TopFeatures
-
-    Example Question: How was the Sales Confidence Interval report field calculated?
-    Cypher Query:
-    MATCH (rf:ReportField {name: "Sales Confidence Interval"})<-[:FEEDS]-(de:DataElement)
-    RETURN de.generatedFrom AS GeneratedFrom
-
-    Example Question: What forecasting method is implemented in Inventory Management Prediction Model Version1 model version?
-    Cypher Query:
-    MATCH (mv:ModelVersion {name: "Inventory Management Prediction Model Version1"})
-    RETURN mv.model_parameters
-
-    Example Question: What is the maximum depth setting for the Decision Tree in Financial Health Prediction Model Version2?
-    Cypher Query:
-    MATCH (mv:ModelVersion {name: "Financial Health Prediction Model Version2"})
-    RETURN mv.model_parameters
-
-    Example Question: What are the names of all of the model versions?
-    Cypher Query: 
-    MATCH (mv:ModelVersion)
-    RETURN mv.name
-
-    In addition to the schema's nodes and relationships, the ModelVersion node has the following properties:
-    [“name", "version", "latest_version", "metadata", "model_parameters", "top_features", "performance_metrics", "model_id"]
+    1. Databases contain Tables.
+    2. Tables have Columns.
+    3. Databases are associated with Business Groups.
+    4. Tables have Columns and Tables have primary key in Column.
+    5. Column transforms into Data Elements.
+    6. Contacts are contacts of Business Groups.
+    7. Users can:
+        1. Be entitled to Databases and Reports.
+        2. Own Reports and Model Versions.
+        3. Maintain Reports and Model Versions
+    8. Reports are associated with Business Groups.
+    9. Reports have Report Sections.
+    10. Report Sections have Report Fields.
+    11. Data Elements feed Report Fields.
+    12. Report Fields serve as inputs to Model Versions.
+    13. Model Versions produce Data Elements.
+    14. Model Versions are versions of Models and belong to Models.
+    15. Model's latest version is Model Version.
 """
+
+
+UNCOMMON_QUESTION_WORKFLOW_TEMPLATE_ALT = """
+    Data is stored in a Neo4j graph database. Here are all of the node types:
+    Node Types:     BusinessGroup, Column, Contact, Database,
+                    DataElement, Model, ModelVersion, Report,
+                    ReportField, ReportSection, Table, User
+
+    The node types have the following attributes:
+    Attributes:     BusinessGroup: <id>, BusinessGroup_embedding, name
+                    Column: <id>, Column_embedding, name, type
+                    Contact: <id>, Contact_embedding, name, email
+                    Database: <id>, Database_emmbedding, name, type
+                    DataElement: <id>, name, source, generatedFrom, DataElement_embedding
+                    Model: <id>, move_id, name, model_metadata, Model_embedding
+                    ModelVersion: <id>, metadata, latest_version, performance_metrics, name, model_parameters, top_features, model_id, version, ModelVersion_embedding
+                    Report: <id>, Report_embedding, name
+                    ReportField: <id>, ReportField_embedding, name, id
+                    ReportSection: <id>, name, ReportSection_embedding
+                    Table: <id>, name, Table_embedding
+                    User: <id>, name, User_embedding, entitlement, account
+
+    The node types have the following relationships with each other:
+    Relationships:  Report ASSOCIATED_WITH BusinessGroup,
+                    Database ASSOCIATED_WITH BusinessGroup,
+                    ReportField BELONGS_TO ReportSection,
+                    Contact CONTACT_OF BusinessGroup,
+                    Database CONTAINS Table,
+                    User ENTITLED_ON Database,
+                    User ENTITLED_ON Report,
+                    DataElement FEEDS ReportField,
+                    Table HAS_COLUMN Column,
+                    Table HAS_PRIMARY_KEY Column,
+                    DataElement INPUT_TO ModelVersion,
+                    Model LATEST_VERSION ModelVersion,
+                    User MAINTAINS Report,
+                    User MAINTAINS ModelVersion,
+                    User OWNS ModelVersion,
+                    User OWNS Report
+                    ReportSection PART_OF Report,
+                    ModelVersion PRODUCES DataElement,
+                    Column TRANSFORMS DataElement,
+                    Model VERSION_OF ModelVersion
+
+    Here is some additional information that will help you.
+    1. When a user asks a question about a specific node, never try to match the node name exactly as written. Instead, use CONTAINS() clauses to find nodes with given keywords in the node name. THIS IS THE MOST IMPORTANT RULE AND YOU MUST FOLLOW IT!!!!!
+    2. When a user questions asks what is "upstream", that means they want to know which node(s) points to a specified node
+    3. When a user questions asks what is "downstream", that means they want to know which node(s) point away fromm a specified node
+    4. When a user questions asks "how many" of something, you must use a COUNT() statement to count nodes meeting a condition
+    5. When a user question asks "Who", that refers to a User or a Contact node
+
+    I want you to generate and return a Cypher Query that answers the user question: {query}, with additional information from the retrieved context: {context}, and graph schema: {schema}.
+"""
+
 
 USER_RESPONSE_TEMPLATE = """
     Given this user question: {query}

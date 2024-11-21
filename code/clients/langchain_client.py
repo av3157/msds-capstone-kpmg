@@ -3,7 +3,7 @@ from langchain_community.graphs import Neo4jGraph
 from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
 from langchain.prompts.prompt import PromptTemplate
-from constants.prompt_templates import UNCOMMON_QUESTION_WORKFLOW_TEMPLATE
+from constants.prompt_templates import UNCOMMON_QUESTION_WORKFLOW_TEMPLATE, UNCOMMON_QUESTION_WORKFLOW_TEMPLATE_ALT
 from constants.db_constants import DATABASE_SCHEMA
 
 import os
@@ -14,10 +14,37 @@ class LangChainClient:
             url=os.getenv('NEO4J_URI'), username=os.getenv('NEO4J_USER'), password=os.getenv('NEO4J_PASSWORD')
         )
     
-    def run_template_generation(self, user_input, context_text):
+    # def run_template_generation(self, user_input, context_text):
+    #     self.graph.refresh_schema()
+    #     CYPHER_GENERATION_PROMPT = PromptTemplate(
+    #         input_variables=["query", "context", "schema"], template=UNCOMMON_QUESTION_WORKFLOW_TEMPLATE
+    #     )
+
+    #     chain = GraphCypherQAChain.from_llm(
+    #         ChatOpenAI(temperature=0, model_name="gpt-4o"),
+    #         graph=self.graph,
+    #         verbose=True,
+    #         allow_dangerous_requests=True,
+    #         prompt=CYPHER_GENERATION_PROMPT,
+    #         return_intermediate_steps=True
+    #     )
+
+    #     user_question = {
+    #         "query": user_input,       # The user's question
+    #         "context": context_text,   # context from RetrievalQA
+    #         "schema": DATABASE_SCHEMA  # database schema
+    #     }
+
+    #     result = chain.invoke(user_question)
+    #     print(f"LangChain Cypher query steps: {result['intermediate_steps']}")
+    #     return result['intermediate_steps']
+
+    def run_template_generation(self, user_input, context_text, max_attempts=5):
         self.graph.refresh_schema()
+        
         CYPHER_GENERATION_PROMPT = PromptTemplate(
-            input_variables=["query", "context", "schema"], template=UNCOMMON_QUESTION_WORKFLOW_TEMPLATE
+            input_variables=["query", "context", "schema"], 
+            template=UNCOMMON_QUESTION_WORKFLOW_TEMPLATE_ALT
         )
 
         chain = GraphCypherQAChain.from_llm(
@@ -35,6 +62,20 @@ class LangChainClient:
             "schema": DATABASE_SCHEMA  # database schema
         }
 
-        result = chain.invoke(user_question)
-        print(f"LangChain Cypher query steps: {result['intermediate_steps']}")
-        return result['intermediate_steps']
+        attempts = 0
+        result = None
+
+        while attempts < max_attempts:
+            print(f"\n Attempt {attempts + 1} generating Cypher query...")
+            
+            result = chain.invoke(user_question)
+            print(f"LangChain Cypher query steps: {result['intermediate_steps']}")
+
+            query = result['intermediate_steps'][0]
+            answer = result['intermediate_steps'][1]
+            if not answer["context"]:
+                print("Query failed to retrieve data. Refining query...")
+                user_question['query'] += f" This was your previous query: {query['query']}. Make sure the new Cypher Query is different from this, especially the MATCH clause."
+                attempts += 1
+
+        return result['intermediate_steps'] 

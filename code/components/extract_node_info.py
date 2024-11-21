@@ -27,12 +27,12 @@ def match_node(user_input):
         if score > best_score:
             best_match, best_score, best_idx = match, score, idx
     
-    if best_score >= 60: 
-        return nodes[best_idx] + "_embedding_graph"
+    if best_score >= 55: 
+        return nodes[best_idx] 
     else: 
         return None
 
 # Test
-# user_input = "What are the names of the busness grups?" # purposely misspelled 
+# user_input = "What type is the Finance_Database" # purposely misspelled 
 # result = match_node(user_input)
 # print(result)
