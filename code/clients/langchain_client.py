@@ -77,5 +77,7 @@ class LangChainClient:
                 print("Query failed to retrieve data. Refining query...")
                 user_question['query'] += f" This was your previous query: {query['query']}. Make sure the new Cypher Query is different from this, especially the MATCH clause."
                 attempts += 1
+            else: 
+                attempts = max_attempts
 
         return result['intermediate_steps'] 

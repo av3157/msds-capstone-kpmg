@@ -238,7 +238,7 @@ def execute_uncommon_query(user_input, embeddings):
         # Retrieve relevant nodes 
         answer = cypher_query_response[1]
         if not answer["context"]:
-            n = 2 # for now
+            n = 1 # for now
             cypher_n_docs = cypher_query_documents[0:n]
             first_n_docs = "\n".join([doc.page_content for doc in cypher_n_docs])
             node_names = re.findall(r"name:\s*(.*)", first_n_docs)
@@ -256,7 +256,7 @@ def execute_uncommon_query(user_input, embeddings):
                 RETURN n AS source_node, r AS relationship, m AS connected_node            
             """
             
-            cypher_query_response = neo4j.execute_query(cypher_query)
+            cypher_query_response = neo4j.execute_query_one_hop(cypher_query)
             print("CYPHER QUERY EXECUTED SUCCESSFULLY!")
 
         #Parameter Correction - if necessary
