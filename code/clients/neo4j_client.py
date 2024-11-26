@@ -47,7 +47,7 @@ class Neo4jClient:
             for key, value in record["connected_node"].items():
                 if "embedding" not in key:
                     output_string += f"{key}: {value}\n"
-            
+                    
             i += 1
 
         return output_string

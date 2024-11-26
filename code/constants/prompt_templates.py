@@ -203,7 +203,8 @@ USER_RESPONSE_TEMPLATE = """
     Given this user question: {query}
     And data from the Neo4j database: {cypher_query_response}
 
-    Task: Answer the user question using only the data from the Neo4j database.  Use nested bullet points to summarize the answer if longer than one sentence.
+    Task: Answer the user question using the data from the Neo4j database. Make sure that the data you use is relevant to the user's question.
+    Use nested bullet points to summarize the answer if longer than one sentence.
 
     Example short answer response: The datasource for the Monthly Sales Trend field is 2 nodes upstream.
     

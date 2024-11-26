@@ -238,7 +238,7 @@ def execute_uncommon_query(user_input, embeddings):
         # Retrieve relevant nodes 
         answer = cypher_query_response[1]
         if not answer["context"]:
-            n = 1 # for now
+            n = 2 # for now
             cypher_n_docs = cypher_query_documents[0:n]
             first_n_docs = "\n".join([doc.page_content for doc in cypher_n_docs])
             node_names = re.findall(r"name:\s*(.*)", first_n_docs)
@@ -246,17 +246,20 @@ def execute_uncommon_query(user_input, embeddings):
             print(f"NODE NAME: {node_names}")
 
             neo4j = Neo4jClient()
-            cypher_query = f"""
-                MATCH (n)-[r]->(m)  // Outgoing relationships
-                WHERE n.name = "{node_names[0]}"
-                RETURN n AS source_node, r AS relationship, m AS connected_node
-                UNION
-                MATCH (n)<-[r]-(m)  // Incoming relationships
-                WHERE n.name = "{node_names[0]}"
-                RETURN n AS source_node, r AS relationship, m AS connected_node            
-            """
-            
-            cypher_query_response = neo4j.execute_query_one_hop(cypher_query)
+            cypher_query_response = ""
+            for i in range(n):
+                cypher_query_response += f"\n---------NODE {node_names[i]}---------\n"
+                cypher_query = f"""
+                    MATCH (n)-[r]->(m)  // Outgoing relationships
+                    WHERE n.name = "{node_names[i]}"
+                    RETURN n AS source_node, r AS relationship, m AS connected_node
+                    UNION
+                    MATCH (n)<-[r]-(m)  // Incoming relationships
+                    WHERE n.name = "{node_names[i]}"
+                    RETURN n AS source_node, r AS relationship, m AS connected_node            
+                """
+                
+                cypher_query_response += neo4j.execute_query_one_hop(cypher_query)
             print("CYPHER QUERY EXECUTED SUCCESSFULLY!")
 
         #Parameter Correction - if necessary
