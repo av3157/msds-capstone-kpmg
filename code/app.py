@@ -9,6 +9,7 @@ from constants.chatbot_responses import CHATBOT_INTRO_MESSAGE, FAILED_INTENT_MAT
 from constants.db_constants import DATABASE_SCHEMA
 from constants.query_templates import query_map
 from components.parameter_correction import ParameterCorrection
+from components.create_embeddings import create_embeddings
 from gui.graph_test import fetch_graph_data
 import logging
 import os
@@ -28,122 +29,13 @@ from langchain_community.graphs import Neo4jGraph
 from dotenv import load_dotenv
 load_dotenv()
 
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-
 # RAG Chatbot Orchestrator
-#     1. Intent matching to determine if user request is a common, uncommon, or irrelevant question
+#     1. Intent matching to determine if user request is a common or uncommon
 #         - If its common, we use the extracted input parameter, update the expected Cypher query, and directly call Neo4j
 #         - If its uncommon, we call GraphCypherQAChain with some example Cypher queries to generate a Cypher query
-#         - If its irrelevant, we let the user know that we don't support their request
+#               -If its irrelevant, we let the user know that we don't support their request
+#               - If the correct cypher query is unable to be generated, perform one hop
 #     2. For common and uncommon Cypher query results, we pass the user request and query result to a LLM to generate the final response
-def create_embeddings():
-    uri = os.getenv('NEO4J_URI')
-    username = os.getenv('NEO4J_USER')
-    password = os.getenv('NEO4J_PASSWORD')
-
-    BusinessGroup = { "index_name": "BusinessGroup_idx",
-                    "node_label": "BusinessGroup",
-                    "text_node_properties": ["name"],
-                    "embedding_node_property": "BusinessGroup_embedding"
-                    }
-    Column = {
-    "index_name": "Column_idx",
-    "node_label": "Column",
-    "text_node_properties": ["name", "type"],
-    "embedding_node_property": "Column_embedding"
-    }
-
-    Contact = {
-    "index_name": "Contact_idx",
-    "node_label": "Contact",
-    "text_node_properties": ["name", "type"],
-    "embedding_node_property": "Contact_embedding"
-    }
-
-    Database = {
-    "index_name": "Database_idx",
-    "node_label": "Database",
-    "text_node_properties": ["name", "type"],
-    "embedding_node_property": "Database_embedding"
-    }
-
-    DataElement = {
-    "index_name": "DataElement_idx",
-    "node_label": "DataElement",
-    "text_node_properties": ["name", "source", "generatedForm"],
-    "embedding_node_property": "DataElement_embedding"
-    }
-
-    Model = {
-    "index_name": "Model_idx",
-    "node_label": "Model",
-    "text_node_properties": ["move_id", "name", "model_metadata"],
-    "embedding_node_property": "Model_embedding"
-    }
-
-    ModelVersion = {
-    "index_name": "ModelVersion_idx",
-    "node_label": "ModelVersion",
-    "text_node_properties": ["metadata", "latest_version", "performance_metrics", "name", 
-                            "model_parameters", "top_features", "model_id", "version"],
-    "embedding_node_property": "ModelVersion_embedding"
-    }
-
-    Report = {
-    "index_name": "Report_idx",
-    "node_label": "Report",
-    "text_node_properties": ["name"],
-    "embedding_node_property": "Report_embedding"
-    }
-
-    ReportField = {
-    "index_name": "ReportField_idx",
-    "node_label": "ReportField",
-    "text_node_properties": ["name", "id"],
-    "embedding_node_property": "ReportField_embedding"
-    }
-
-    ReportSection = {
-    "index_name": "ReportSection_idx",
-    "node_label": "ReportSection",
-    "text_node_properties": ["name"],
-    "embedding_node_property": "ReportSection_embedding"
-    }
-
-    Table = {
-    "index_name": "Table_idx",
-    "node_label": "Table",
-    "text_node_properties": ["name"],
-    "embedding_node_property": "Table_embedding"
-    }
-
-    User = {
-    "index_name": "User_idx",
-    "node_label": "User",
-    "text_node_properties": ["name", "account"], #omitted entitlement for now
-    "embedding_node_property": "User_embedding"
-    }
-
-    parent = [BusinessGroup, Column, Contact, Database, 
-            DataElement, Model, ModelVersion, Report, 
-            ReportField, ReportSection, Table, User]
-
-    graphs = {}
-
-    for i in range(len(parent)):
-    # Create the vectorstore for our existing graph
-        val = parent[i]["node_label"]
-        graphs[f"{val}_embedding_graph"] = Neo4jVector.from_existing_graph(
-            embedding=OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY),
-            url=uri,
-            username=username,
-            password=password,
-            index_name=parent[i]["index_name"],
-            node_label=parent[i]["node_label"],
-            text_node_properties=parent[i]["text_node_properties"],
-            embedding_node_property=parent[i]["embedding_node_property"],
-        )
-    return graphs 
 
 def rag_chatbot(user_input):
     embeddings_graphs = create_embeddings()
@@ -234,11 +126,11 @@ def execute_uncommon_query(user_input, embeddings):
         cypher_query_response = langchain_client.run_template_generation(user_input, context_text)
 
         # Step 4 from workflow
-        # if Cypher Query returns no context ([]), then do the following:
+        # If Cypher Query returns no context ([]), then do one hop:
         # Retrieve relevant nodes 
         answer = cypher_query_response[1]
         if not answer["context"]:
-            n = 2 # for now
+            n = 2 # number of nodes for context
             cypher_n_docs = cypher_query_documents[0:n]
             first_n_docs = "\n".join([doc.page_content for doc in cypher_n_docs])
             node_names = re.findall(r"name:\s*(.*)", first_n_docs)
@@ -248,7 +140,7 @@ def execute_uncommon_query(user_input, embeddings):
             neo4j = Neo4jClient()
             cypher_query_response = ""
             for i in range(n):
-                cypher_query_response += f"\n---------NODE {node_names[i]}---------\n"
+                cypher_query_response += f"\n---------NODE: {node_names[i]}---------\n"
                 cypher_query = f"""
                     MATCH (n)-[r]->(m)  // Outgoing relationships
                     WHERE n.name = "{node_names[i]}"
