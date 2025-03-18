@@ -45,7 +45,7 @@ Note:
 pip install -r requirements.txt
 ```
 
-4. Loading KPMG data to Neo4j 
+4. Creating a Neo4j Instance
 
 After logging into your Neo4j account using this link: https://console.neo4j.io/, you will need to create an instance. Once you have created an instance, you will be given a username, password, and ID. You will also need an OpenAI key which you can generate by following this link: https://openai.com/blog/openai-api. We will use this information to generate a `.env` file in the next step. 
 
@@ -63,7 +63,11 @@ OPENAI_API_KEY=api_key
 Note:
 - The uri will be in this format `neo4j+s://ID.databases.neo4j.io` where you simply insert your Neo4j instance ID in the ID section.
 
-6. Running the Application
+6. Import data into Neo4j database
+
+Once the Neo4j instance and `.env` file are setup, you can now import the synthetic KPMG data into the Neo4j database. You can do this by running the `Data_Import.ipynb` file.
+
+7. Running the Application
 
 To run the StreamLit app locally, execute the following command which is essentially running the root file of our project (app.py): `streamlit run code/app.py`.
 
