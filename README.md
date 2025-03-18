@@ -10,7 +10,7 @@ language responses, occasionally accompanied by informative relationship graphs.
 
 We have enabled self-reflection and single-hop functionality which allow for more consistent and accurate responses. This project uses Neo4j for the graph database and LangChain and the OpenAI LLM (gpt-4) for Cypher query generation and natural language output. 
 
-![alt text](C:\Users\aksha\Documents\Columbia Documents\Personal Projects\msds-capstone-kpmg\KPMG Capstone Workflow.jpg)
+![KPMG Capstone Workflow](KPMG_Capstone_Workflow.jpg)
 
 ## Team Structure
 
