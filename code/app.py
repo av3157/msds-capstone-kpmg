@@ -1,3 +1,4 @@
+# IMPORTS 
 import streamlit as st
 from clients.neo4j_client import Neo4jClient
 from clients.openai_client import OpenAiClient
@@ -14,29 +15,20 @@ from gui.graph_test import fetch_graph_data
 import logging
 import os
 import re
-from streamlit_agraph import agraph, Node, Edge, Config
-from streamlit_image_zoom import image_zoom
-from PIL import Image
-
-from langchain_community.vectorstores import Neo4jVector
-from langchain_openai import OpenAIEmbeddings
+from streamlit_agraph import agraph, Config
 from langchain.chains import RetrievalQA
 from langchain.chat_models import ChatOpenAI
-from langchain.chains import GraphCypherQAChain
-from constants.prompt_templates import UNCOMMON_QUESTION_WORKFLOW_TEMPLATE
-from langchain.prompts.prompt import PromptTemplate
-from langchain_community.graphs import Neo4jGraph
 from dotenv import load_dotenv
 load_dotenv()
 
-# RAG Chatbot Orchestrator
-#     1. Intent matching to determine if user request is a common or uncommon
-#         - If its common, we use the extracted input parameter, update the expected Cypher query, and directly call Neo4j
-#         - If its uncommon, we call GraphCypherQAChain with some example Cypher queries to generate a Cypher query
-#               -If its irrelevant, we let the user know that we don't support their request
-#               - If the correct cypher query is unable to be generated, perform one hop
-#     2. For common and uncommon Cypher query results, we pass the user request and query result to a LLM to generate the final response
 
+# RAG Chatbot Orchestrator/Workflow
+# 1. Intent matching to determine if user request is a common or uncommon
+#     - If its common, we use the extracted input parameter, update the expected Cypher query, and directly call Neo4j
+#     - If its uncommon, we call GraphCypherQAChain with user question, graph schema, and retrieved context to generate a Cypher query
+#         - If its irrelevant, we let the user know that we don't support their request
+#         - If the correct cypher query is unable to be generated after 5 self-reflection attempts, perform single hop
+# 2. For common and uncommon Cypher query results, we pass the user request and query result to a LLM to generate the final response
 def rag_chatbot(user_input):
     embeddings_graphs = create_embeddings()
     print("---------------------------------")
@@ -104,9 +96,15 @@ def rag_chatbot(user_input):
         return NO_RESULTS_FOUND
 
     response = generate_final_output(openai, user_input, cypher_query_response)
-    # EVAL: return cypher_query_response, response
+    # FOR EVAL: return cypher_query_response, response
     return response
 
+
+# Method for executing uncommon queries which follows the workflow below
+# 1. Retrive relevant nodes 
+# 2. Pass in this context, user question, and graph schema to LLM to generate and execute Cypher query
+# 3. Try 5 times with self-reflection
+# 4. If still unable to generate and execute Cypher query, perform single hop
 def execute_uncommon_query(user_input, embeddings):
     langchain_client = LangChainClient()
     error_occurred = False
@@ -115,9 +113,10 @@ def execute_uncommon_query(user_input, embeddings):
     print(f"Retrieving information from the {embed_graph}.")
     print("UNCOMMON QUERY")
     try:
+        # Retriving relevant documents to pass in as context for LLM to generate Cypher query
         vector_qa = RetrievalQA.from_chain_type(
             llm=ChatOpenAI(temperature=0, model_name="gpt-4"),
-            chain_type="stuff", #examples are stuff, map_reduce, refine, map_rerank
+            chain_type="stuff", # examples are stuff, map_reduce, refine, map_rerank
             retriever=embeddings[embed_graph].as_retriever(search_type='similarity', k=15)) 
         cypher_query_documents = vector_qa.retriever.get_relevant_documents(user_input)
         
@@ -126,9 +125,8 @@ def execute_uncommon_query(user_input, embeddings):
 
         cypher_query_response = langchain_client.run_template_generation(user_input, context_text)
 
-        # Step 4 from workflow
-        # If Cypher Query returns no context ([]), then do one hop:
-        # Retrieve relevant nodes 
+        # Single Hop Workflow 
+        # select n of k relevant nodes and pass them into predefined Cypher Query below 
         answer = cypher_query_response[1]
         if not answer["context"]:
             n = min(2, len(cypher_query_documents)) # number of nodes for context
@@ -155,7 +153,7 @@ def execute_uncommon_query(user_input, embeddings):
                 cypher_query_response += neo4j.execute_query_one_hop(cypher_query)
             print("CYPHER QUERY EXECUTED SUCCESSFULLY!")
 
-        #Parameter Correction - if necessary
+        # Parameter Correction - if necessary
         if len(cypher_query_documents) == 0 and not cypher_query_response:
             print("NOTE: No data was found from LangChain call, trying parameter correction\n")
             input_corrector = ParameterCorrection()
@@ -171,6 +169,8 @@ def execute_uncommon_query(user_input, embeddings):
         error_occurred = True
     return { 'cypher_query_response': cypher_query_response, 'error_occurred': error_occurred}
 
+
+# Previous team's code for executing common queries 
 def execute_common_query(openai, user_input, question_id):
     # Obtain the question ID and extract input parameter
     neo4j = Neo4jClient()
@@ -219,21 +219,17 @@ def generate_final_output(openai, user_input, cypher_query_response):
     response = openai.generate(chatbot_response_template)
     return response
 
+
 # Setup StreamLit app
 def main():
     # Sidebar
     image_path = os.path.join(os.path.dirname(__file__), '..', 'static', 'visualization2.png')
-    # Streamlit image_zoom
-    # image = Image.open(image_path)
     
     with st.sidebar:
         st.image(image_path, caption='Database Schema', use_column_width="always")
-        # image_zoom(image, mode="scroll", size=(500, 700), keep_aspect_ratio=False, zoom_factor=4.0, increment=0.2)
-        # st.markdown(f'<img src="{image_path}" style="{style_image1}">',
-        #             unsafe_allow_html=True)
+
     st.title("Model Metadata RAG Chatbot")
     
-
     # Initialize chat history
     if "messages" not in st.session_state:
         st.session_state.messages = [{"role": "assistant", "content": CHATBOT_INTRO_MESSAGE}]
@@ -252,10 +248,9 @@ def main():
 
         # Call RAG chatbot
         logging.info("Started request execution")
-        #EVAL: generated_query, response = rag_chatbot(prompt)
+        # FOR EVAL: generated_query, response = rag_chatbot(prompt)
         response = rag_chatbot(prompt)
         logging.info("Finished request execution")
-
        
         # Display chatbot response in chat message container
         with st.chat_message("assistant"):

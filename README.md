@@ -45,7 +45,11 @@ Note:
 pip install -r requirements.txt
 ```
 
-4. Define environmental variables
+4. Loading KPMG data to Neo4j 
+
+After logging into your Neo4j account using this link: https://console.neo4j.io/, you will need to create an instance. Once you have created an instance, you will be given a username, password, and ID. You will also need an OpenAI key which you can generate by following this link: https://openai.com/blog/openai-api. We will use this information to generate a `.env` file in the next step. 
+
+5. Define environmental variables
 
 Create a `.env` file in the root of the package and define variables like the following:
 
@@ -57,10 +61,9 @@ OPENAI_API_KEY=api_key
 ```
 
 Note:
-- Credentials for Neo4j are the same as those when connecting to your instance in the Neo4j console: https://console.neo4j.io/
-- To get an OpenAI API key, go to the following link, setup an account, and generate an API key: https://openai.com/blog/openai-api
+- The uri will be in this format `neo4j+s://ID.databases.neo4j.io` where you simply insert your Neo4j instance ID in the ID section.
 
-4. Running the Application
+6. Running the Application
 
 To run the StreamLit app locally, execute the following command which is essentially running the root file of our project (app.py): `streamlit run code/app.py`.
 
