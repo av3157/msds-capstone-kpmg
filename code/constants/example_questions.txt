@@ -108,7 +108,7 @@ Reqs -> Rels: {"works on": [MAINTAINS, ENTITLED_ON, OWNS]}
         RETURN bg.name
 
 
-17. List all users who work on Inventory Management Report and their contributions
+17. List all users who work on Inventory Management Report and their contributions.
         MATCH (u:User)-[r]->(rp:Report)
         WHERE rp.name CONTAINS "Inventory" and rp.name CONTAINS "Management"
         RETURN u.name, r 
@@ -118,7 +118,7 @@ Reqs -> Rels: {"works on": [MAINTAINS, ENTITLED_ON, OWNS]}
         WHERE db.name CONTAINS "Executive" and db.name CONTAINS "Management"
         RETURN t.name
 
-19. Name all of the report fields in the Financial Health Dashboard report
+19. Name all of the report fields in the Financial Health Dashboard report.
         MATCH (r:Report)<-[:PART_OF]-(rs:ReportSection)
         WHERE r.name CONTAINS "Financial" and r.name CONTAINS "Health" 
         MATCH (rs)<-[:BELONGS_TO]-(rf:ReportField)
