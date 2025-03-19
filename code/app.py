@@ -1,14 +1,12 @@
-# IMPORTS 
+# Imports
 import streamlit as st
 from clients.neo4j_client import Neo4jClient
 from clients.openai_client import OpenAiClient
 from clients.langchain_client import LangChainClient
 from components.intent_matching import get_input_parameter, get_request_intent
 from components.extract_node_info import match_node
-from constants.prompt_templates import USER_RESPONSE_TEMPLATE, INTENT_MATCHING_TEMPLATE
+from constants.prompt_templates import USER_RESPONSE_TEMPLATE
 from constants.chatbot_responses import CHATBOT_INTRO_MESSAGE, FAILED_INTENT_MATCH, CYPHER_QUERY_ERROR, NOT_RELEVANT_USER_REQUEST, NO_RESULTS_FOUND
-from constants.db_constants import DATABASE_SCHEMA
-from constants.query_templates import query_map
 from components.parameter_correction import ParameterCorrection
 from components.create_embeddings import create_embeddings
 from gui.graph_test import fetch_graph_data

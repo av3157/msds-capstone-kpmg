@@ -1,3 +1,4 @@
+# Imports
 import os
 from langchain_community.vectorstores import Neo4jVector
 from langchain_openai import OpenAIEmbeddings
@@ -9,6 +10,7 @@ def create_embeddings():
     username = os.getenv('NEO4J_USER')
     password = os.getenv('NEO4J_PASSWORD')
 
+    # Below we define the properties of all the node groups in the database
     BusinessGroup = { "index_name": "BusinessGroup_idx",
                     "node_label": "BusinessGroup",
                     "text_node_properties": ["name"],
@@ -88,7 +90,7 @@ def create_embeddings():
     User = {
     "index_name": "User_idx",
     "node_label": "User",
-    "text_node_properties": ["name", "account"], #omitted entitlement for now
+    "text_node_properties": ["name", "account"], 
     "embedding_node_property": "User_embedding"
     }
 
@@ -100,6 +102,7 @@ def create_embeddings():
 
     for i in range(len(parent)):
     # Create the vectorstore for our existing graph
+    # This also creates the embeddings for each node group in the database 
         val = parent[i]["node_label"]
         graphs[f"{val}_embedding_graph"] = Neo4jVector.from_existing_graph(
             embedding=OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY),

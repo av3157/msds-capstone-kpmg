@@ -8,7 +8,7 @@ Our chatbot version employs GraphRAG to capture nuanced variable relationships a
 models, and reports. Via the chatbot UI, users can ask questions about company data and receive natural 
 language responses, occasionally accompanied by informative relationship graphs.
 
-We have enabled self-reflection and single-hop functionality which allow for more consistent and accurate responses. This project uses Neo4j for the graph database and LangChain and the OpenAI LLM (gpt-4) for Cypher query generation and natural language output. 
+We have enabled self-reflection and single-hop functionality which allow for more consistent and accurate responses. This project uses Neo4j for the graph database and LangChain and the OpenAI LLM (gpt-3.5-turbo) for Cypher query generation and natural language output. 
 
 ![KPMG Capstone Workflow](KPMG_Capstone_Workflow.jpg)
 

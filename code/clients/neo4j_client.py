@@ -1,3 +1,4 @@
+# Imports
 import neo4j
 from neo4j import GraphDatabase
 from constants.query_templates import query_map
@@ -20,6 +21,7 @@ class Neo4jClient:
         )
         return [item for sublist in records for item in sublist]
     
+    # This method executes single-hop queries by returning a concatenated string of records
     def execute_query_one_hop(self, query):
         records, summary, keys = self.driver.execute_query(
             query,
@@ -52,7 +54,7 @@ class Neo4jClient:
 
         return output_string
     
-    # Update the Cypher query template with the input parameter
+    # This method generates a common Cypher query using its corresponding question ID and the input parameter 
     def generate_common_cypher_query(self, question_id, input_parameter):
         try:
             cypher_query = query_map[question_id].format(parameter1=input_parameter)

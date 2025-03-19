@@ -1,3 +1,4 @@
+# Imports
 import os
 from dotenv import load_dotenv
 from langchain.prompts import (
@@ -84,10 +85,6 @@ class ParameterCorrection:
         return cleaned_str.split("|")
 
 if __name__ == "__main__":
-    # parameter_correction = ParameterCorrection()
-    # output = parameter_correction.generate_response("What data is upstream to a Fedback_Comments report field?", "ReportField")
-    # print(f"OUTPUT: {output}")
-
     parameter_correction = ParameterCorrection()
     output = parameter_correction.generate_response("What data is upstream to a Fedback_Comments report field?", "")
     print(f"OUTPUT: {output}")
